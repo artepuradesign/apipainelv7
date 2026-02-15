@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar, Clock } from "lucide-react";
 import { getFullApiUrl } from '@/utils/apiHelper';
 import type { User } from "@/types/user";
+import { format, differenceInDays, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Plan {
   id: number;
@@ -126,6 +128,39 @@ const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUser
                   </SelectContent>
                 </Select>
               )}
+            </div>
+            <div>
+              <Label htmlFor="edit-plan-start" className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" /> Início do Plano
+              </Label>
+              <Input
+                id="edit-plan-start"
+                value={user.planStartDate ? format(parseISO(user.planStartDate), 'dd/MM/yyyy', { locale: ptBR }) : 'Não definido'}
+                readOnly
+                className="bg-muted cursor-default"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-plan-end" className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" /> Término do Plano
+              </Label>
+              <Input
+                id="edit-plan-end"
+                value={user.planEndDate ? format(parseISO(user.planEndDate), 'dd/MM/yyyy', { locale: ptBR }) : 'Não definido'}
+                readOnly
+                className="bg-muted cursor-default"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-days-remaining" className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" /> Dias Restantes
+              </Label>
+              <Input
+                id="edit-days-remaining"
+                value={user.planEndDate ? Math.max(0, differenceInDays(parseISO(user.planEndDate), new Date())) + ' dias' : 'N/A'}
+                readOnly
+                className="bg-muted cursor-default"
+              />
             </div>
           </div>
           <div>

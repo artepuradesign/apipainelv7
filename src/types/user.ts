@@ -17,6 +17,8 @@ export interface User {
   address?: string;
   notes?: string;
   pixKeys?: string[];
+  planStartDate?: string;
+  planEndDate?: string;
   subscription?: {
     id: number;
     plan_id: number;

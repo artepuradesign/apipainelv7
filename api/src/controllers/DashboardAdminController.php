@@ -243,6 +243,8 @@ class DashboardAdminController {
                     'balance' => floatval($row['saldo']),
                     'saldo' => floatval($row['saldo']),
                     'saldo_plano' => floatval($row['saldo_plano']),
+                    'data_inicio' => $row['data_inicio'],
+                    'data_fim' => $row['data_fim'],
                     'status' => $row['status'],
                     'user_role' => $row['user_role'],
                     'full_name' => $row['full_name'],
@@ -634,6 +636,9 @@ class DashboardAdminController {
             $result = $stmt->execute($updateParams);
             
             if ($result) {
+                // Se houve mudança de plano, acumular dias restantes + dias do novo plano
+                $this->handlePlanChangeWithDays($userId, $currentUser, $data);
+                
                 // Registrar transações de carteira para alterações de saldo
                 $this->registerBalanceTransactions($userId, $currentUser, $data);
                 
@@ -648,6 +653,47 @@ class DashboardAdminController {
         } catch (Exception $e) {
             error_log("DASHBOARD_ADMIN UPDATE_USER ERROR: " . $e->getMessage());
             Response::error('Erro ao atualizar usuário: ' . $e->getMessage(), 500);
+        }
+    }
+    
+    private function handlePlanChangeWithDays($userId, $currentUser, $newData) {
+        try {
+            if (!isset($newData['tipoplano']) || $newData['tipoplano'] === $currentUser['tipoplano']) {
+                return; // Sem mudança de plano
+            }
+            
+            // Buscar duration_days do novo plano
+            $planQuery = "SELECT duration_days FROM plans WHERE name = ? AND is_active = 1 LIMIT 1";
+            $planStmt = $this->db->prepare($planQuery);
+            $planStmt->execute([$newData['tipoplano']]);
+            $newPlan = $planStmt->fetch(PDO::FETCH_ASSOC);
+            
+            $newPlanDays = $newPlan ? (int)$newPlan['duration_days'] : 30;
+            
+            // Calcular dias restantes do plano atual
+            $daysRemaining = 0;
+            if (!empty($currentUser['data_fim'])) {
+                $endDate = new DateTime($currentUser['data_fim']);
+                $today = new DateTime();
+                if ($endDate > $today) {
+                    $daysRemaining = $today->diff($endDate)->days;
+                }
+            }
+            
+            // Somar dias restantes + dias do novo plano
+            $totalDays = $daysRemaining + $newPlanDays;
+            $newStartDate = date('Y-m-d');
+            $newEndDate = date('Y-m-d', strtotime("+{$totalDays} days"));
+            
+            // Atualizar datas do plano no users
+            $updateQuery = "UPDATE users SET data_inicio = ?, data_fim = ?, updated_at = NOW() WHERE id = ?";
+            $updateStmt = $this->db->prepare($updateQuery);
+            $updateStmt->execute([$newStartDate, $newEndDate, $userId]);
+            
+            error_log("ADMIN_PLAN_CHANGE: User {$userId} - Plano: {$currentUser['tipoplano']} → {$newData['tipoplano']}, Dias restantes: {$daysRemaining}, Novo plano: {$newPlanDays} dias, Total: {$totalDays} dias, Fim: {$newEndDate}");
+            
+        } catch (Exception $e) {
+            error_log("HANDLE_PLAN_CHANGE ERROR: " . $e->getMessage());
         }
     }
     
@@ -721,11 +767,31 @@ class DashboardAdminController {
             
             // Notificação de alteração de plano
             if (isset($newData['tipoplano']) && $newData['tipoplano'] !== $currentUser['tipoplano']) {
+                // Calcular dias para a notificação
+                $planQuery = "SELECT duration_days FROM plans WHERE name = ? AND is_active = 1 LIMIT 1";
+                $planStmt = $this->db->prepare($planQuery);
+                $planStmt->execute([$newData['tipoplano']]);
+                $newPlan = $planStmt->fetch(PDO::FETCH_ASSOC);
+                $newPlanDays = $newPlan ? (int)$newPlan['duration_days'] : 30;
+                
+                $daysRemaining = 0;
+                if (!empty($currentUser['data_fim'])) {
+                    $endDate = new DateTime($currentUser['data_fim']);
+                    $today = new DateTime();
+                    if ($endDate > $today) {
+                        $daysRemaining = $today->diff($endDate)->days;
+                    }
+                }
+                $totalDays = $daysRemaining + $newPlanDays;
+                
+                $message = 'O Administrador atualizou o seu plano de "' . ($currentUser['tipoplano'] ?? 'Nenhum') . '" para "' . $newData['tipoplano'] . '". ';
+                $message .= 'Dias restantes do plano anterior: ' . $daysRemaining . ' + Dias do novo plano: ' . $newPlanDays . ' = Total: ' . $totalDays . ' dias.';
+                
                 $notificationService->createNotification(
                     $userId,
                     'system',
                     'Plano Atualizado pelo Administrador',
-                    'O Administrador atualizou o seu plano de "' . ($currentUser['tipoplano'] ?? 'Nenhum') . '" para "' . $newData['tipoplano'] . '".',
+                    $message,
                     null,
                     null,
                     'high'
