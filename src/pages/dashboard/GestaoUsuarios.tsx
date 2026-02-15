@@ -180,6 +180,7 @@ const GestaoUsuarios = () => {
         user_role: editingUser.role as 'assinante' | 'suporte' | 'admin',
         tipoplano: editingUser.plan,
         saldo: editingUser.balance,
+        saldo_plano: editingUser.planBalance || 0,
         cpf: editingUser.cpf,
         telefone: editingUser.phone,
         endereco: editingUser.address,

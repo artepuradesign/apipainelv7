@@ -78,12 +78,23 @@ const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUser
               />
             </div>
             <div>
-              <Label htmlFor="edit-balance">Saldo</Label>
+              <Label htmlFor="edit-balance">Saldo da Carteira</Label>
               <Input
                 id="edit-balance"
                 type="number"
+                step="0.01"
                 value={user.balance}
                 onChange={(e) => onUserChange({ ...user, balance: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-plan-balance">Saldo do Plano</Label>
+              <Input
+                id="edit-plan-balance"
+                type="number"
+                step="0.01"
+                value={user.planBalance || 0}
+                onChange={(e) => onUserChange({ ...user, planBalance: parseFloat(e.target.value) || 0 })}
               />
             </div>
             <div>
