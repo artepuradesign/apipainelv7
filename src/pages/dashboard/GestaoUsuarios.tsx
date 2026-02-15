@@ -91,6 +91,8 @@ const GestaoUsuarios = () => {
           address: user.endereco || '',
           notes: '',
           pixKeys: [],
+          planStartDate: user.data_inicio || '',
+          planEndDate: user.data_fim || '',
           subscription: user.subscription
         }));
         
