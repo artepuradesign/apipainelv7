@@ -160,13 +160,21 @@ const GestaoUsuarios = () => {
     }
   };
 
+  // Guardar o usuário original ao abrir edição para comparar mudanças
+  const [originalEditingUser, setOriginalEditingUser] = useState<User | null>(null);
+
+  const handleStartEdit = (user: User) => {
+    setOriginalEditingUser({ ...user });
+    setEditingUser({ ...user });
+  };
+
   const handleEditUser = async () => {
     if (!editingUser) return;
 
     setLoading(true);
     
     try {
-      const userData: Partial<AdminUserData> = {
+      const userData: Partial<AdminUserData> & { notes?: string } = {
         email: editingUser.email,
         full_name: editingUser.name,
         user_role: editingUser.role as 'assinante' | 'suporte' | 'admin',
@@ -178,12 +186,18 @@ const GestaoUsuarios = () => {
         status: editingUser.isActive ? 'ativo' : 'inativo'
       };
 
+      // Enviar observações para gerar notificação no backend
+      if (editingUser.notes && editingUser.notes.trim()) {
+        (userData as any).notes = editingUser.notes.trim();
+      }
+
       const apiResponse = await adminUserApiService.updateUser(parseInt(editingUser.id), userData);
       
       if (apiResponse.success) {
         await loadUsers();
         setEditingUser(null);
-        toast.success('Usuário atualizado com sucesso!');
+        setOriginalEditingUser(null);
+        toast.success('Usuário atualizado com sucesso! Notificações enviadas.');
       } else {
         console.error('❌ [EDIT_USER] Erro na API:', apiResponse.error);
         toast.error(apiResponse.error || 'Erro ao atualizar usuário');
@@ -402,7 +416,7 @@ const GestaoUsuarios = () => {
                     user={user}
                     onToggleStatus={handleToggleUserStatus}
                     onView={setViewingUser}
-                    onEdit={setEditingUser}
+                    onEdit={handleStartEdit}
                     onResetPassword={handleResetPassword}
                     onDelete={handleDeleteUser}
                   />
