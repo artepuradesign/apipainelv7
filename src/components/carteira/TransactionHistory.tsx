@@ -182,6 +182,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           return <Gift className="w-5 h-5 text-purple-500" />;
         case 'cupom':
           return <Gift className="w-5 h-5 text-yellow-500" />;
+        case 'entrada':
+          return <Plus className="w-5 h-5 text-green-500" />;
         default:
           return <Wallet className="w-5 h-5 text-purple-500" />;
       }
@@ -197,6 +199,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           return <CreditCard className="w-5 h-5 text-orange-500" />;
         case 'consultation':
           return <FileText className="w-5 h-5 text-red-500" />;
+        case 'saida':
+          return <ArrowUp className="w-5 h-5 text-red-500" />;
         default:
           return <ArrowUp className="w-5 h-5 text-red-500" />;
       }
@@ -231,6 +235,23 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         return 'Saldo do Plano';
       default:
         return 'Carteira Digital';
+    }
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case 'entrada': return 'Crédito Admin';
+      case 'saida': return 'Ajuste Admin';
+      case 'recarga':
+      case 'recharge': return 'Recarga';
+      case 'indicacao': return 'Indicação';
+      case 'bonus': return 'Bônus';
+      case 'plan_purchase':
+      case 'plan': return 'Plano';
+      case 'plan_activation': return 'Ativação Plano';
+      case 'consultation': return 'Consulta';
+      case 'cupom': return 'Cupom';
+      default: return category || 'Transação';
     }
   };
 
@@ -276,7 +297,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                         }
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground capitalize">
-                        {transaction.type === 'consultation' ? 'Consulta' : transaction.category}
+                        {transaction.type === 'consultation' ? 'Consulta' : getCategoryLabel(transaction.category)}
                       </p>
                     </div>
                   </div>
