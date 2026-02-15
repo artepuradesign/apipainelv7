@@ -93,6 +93,7 @@ const GestaoUsuarios = () => {
           pixKeys: [],
           planStartDate: user.data_inicio || '',
           planEndDate: user.data_fim || '',
+          planDiscount: user.plan_discount || 0,
           subscription: user.subscription
         }));
         
@@ -178,7 +179,7 @@ const GestaoUsuarios = () => {
     setLoading(true);
     
     try {
-      const userData: Partial<AdminUserData> & { notes?: string } = {
+      const userData: Partial<AdminUserData> & { notes?: string; plan_discount?: number } = {
         email: editingUser.email,
         full_name: editingUser.name,
         user_role: editingUser.role as 'assinante' | 'suporte' | 'admin',
@@ -188,7 +189,8 @@ const GestaoUsuarios = () => {
         cpf: editingUser.cpf,
         telefone: editingUser.phone,
         endereco: editingUser.address,
-        status: editingUser.isActive ? 'ativo' : 'inativo'
+        status: editingUser.isActive ? 'ativo' : 'inativo',
+        plan_discount: editingUser.planDiscount || 0
       };
 
       // Enviar observações para gerar notificação no backend

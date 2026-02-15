@@ -100,6 +100,19 @@ const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUser
               />
             </div>
             <div>
+              <Label htmlFor="edit-plan-discount" className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                Desconto do Plano (%)
+              </Label>
+              <Input
+                id="edit-plan-discount"
+                type="number"
+                min="0"
+                max="100"
+                value={user.planDiscount || 0}
+                onChange={(e) => onUserChange({ ...user, planDiscount: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
               <Label htmlFor="edit-plan">Plano</Label>
               {loadingPlans ? (
                 <div className="flex items-center gap-2 h-10 px-3 border rounded-md">
