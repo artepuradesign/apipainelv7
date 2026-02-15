@@ -183,6 +183,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         case 'cupom':
           return <Gift className="w-5 h-5 text-yellow-500" />;
         case 'entrada':
+        case 'admin_adjustment':
           return <Plus className="w-5 h-5 text-green-500" />;
         default:
           return <Wallet className="w-5 h-5 text-purple-500" />;
@@ -200,6 +201,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         case 'consultation':
           return <FileText className="w-5 h-5 text-red-500" />;
         case 'saida':
+        case 'admin_debit':
           return <ArrowUp className="w-5 h-5 text-red-500" />;
         default:
           return <ArrowUp className="w-5 h-5 text-red-500" />;
@@ -220,7 +222,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     }
     
     // Compra de plano sempre vermelho (saída de carteira)
-    if (transaction.category === 'plan_purchase' || transaction.category === 'plan') {
+    if (transaction.category === 'plan_purchase' || transaction.category === 'plan' || transaction.category === 'admin_debit') {
       return 'text-red-500';
     }
     
@@ -240,8 +242,10 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
   const getCategoryLabel = (category?: string) => {
     switch (category) {
-      case 'entrada': return 'Crédito Admin';
-      case 'saida': return 'Ajuste Admin';
+      case 'entrada':
+      case 'admin_adjustment': return 'Crédito Admin';
+      case 'saida':
+      case 'admin_debit': return 'Ajuste Admin';
       case 'recarga':
       case 'recharge': return 'Recarga';
       case 'indicacao': return 'Indicação';
