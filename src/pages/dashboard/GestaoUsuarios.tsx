@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { clearRequestsCache } from '@/config/api';
+import { refreshNotifications } from '@/utils/notificationRefresh';
 import PageHeaderCard from '@/components/dashboard/PageHeaderCard';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -198,6 +200,9 @@ const GestaoUsuarios = () => {
         await loadUsers();
         setEditingUser(null);
         setOriginalEditingUser(null);
+        // Limpar cache e forçar refresh das notificações
+        clearRequestsCache();
+        setTimeout(() => refreshNotifications(), 1000);
         toast.success('Usuário atualizado com sucesso! Notificações enviadas.');
       } else {
         console.error('❌ [EDIT_USER] Erro na API:', apiResponse.error);
