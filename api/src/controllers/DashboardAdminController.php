@@ -634,6 +634,9 @@ class DashboardAdminController {
             $result = $stmt->execute($updateParams);
             
             if ($result) {
+                // Registrar transações de carteira para alterações de saldo
+                $this->registerBalanceTransactions($userId, $currentUser, $data);
+                
                 // Enviar notificações sobre as alterações
                 $this->sendUpdateNotifications($userId, $currentUser, $data);
                 
@@ -645,6 +648,69 @@ class DashboardAdminController {
         } catch (Exception $e) {
             error_log("DASHBOARD_ADMIN UPDATE_USER ERROR: " . $e->getMessage());
             Response::error('Erro ao atualizar usuário: ' . $e->getMessage(), 500);
+        }
+    }
+    
+    private function registerBalanceTransactions($userId, $currentUser, $newData) {
+        try {
+            require_once __DIR__ . '/../services/WalletService.php';
+            $walletService = new WalletService($this->db);
+            
+            // Transação para saldo da carteira (main)
+            if (isset($newData['saldo'])) {
+                $oldSaldo = (float)($currentUser['saldo'] ?? 0);
+                $newSaldo = (float)$newData['saldo'];
+                $diff = $newSaldo - $oldSaldo;
+                
+                if ($diff != 0) {
+                    $type = $diff > 0 ? 'entrada' : 'saida';
+                    $description = $diff > 0 
+                        ? 'Créditos adicionados pelo Administrador' 
+                        : 'Saldo ajustado pelo Administrador';
+                    
+                    // Inserir transação diretamente para evitar validação de saldo insuficiente
+                    $transactionQuery = "INSERT INTO wallet_transactions (
+                        user_id, wallet_type, type, amount, balance_before, balance_after, 
+                        description, reference_type, status, created_at
+                    ) VALUES (?, 'main', ?, ?, ?, ?, ?, 'admin_adjustment', 'completed', NOW())";
+                    
+                    $stmt = $this->db->prepare($transactionQuery);
+                    $stmt->execute([
+                        $userId, $type, abs($diff), $oldSaldo, $newSaldo, $description
+                    ]);
+                    
+                    error_log("ADMIN_BALANCE: Transação carteira registrada - User {$userId}, Diff: R$ {$diff}");
+                }
+            }
+            
+            // Transação para saldo do plano
+            if (isset($newData['saldo_plano'])) {
+                $oldSaldoPlano = (float)($currentUser['saldo_plano'] ?? 0);
+                $newSaldoPlano = (float)$newData['saldo_plano'];
+                $diffPlano = $newSaldoPlano - $oldSaldoPlano;
+                
+                if ($diffPlano != 0) {
+                    $type = $diffPlano > 0 ? 'entrada' : 'saida';
+                    $description = $diffPlano > 0 
+                        ? 'Créditos de plano adicionados pelo Administrador' 
+                        : 'Saldo do plano ajustado pelo Administrador';
+                    
+                    $transactionQuery = "INSERT INTO wallet_transactions (
+                        user_id, wallet_type, type, amount, balance_before, balance_after, 
+                        description, reference_type, status, created_at
+                    ) VALUES (?, 'plan', ?, ?, ?, ?, ?, 'admin_adjustment', 'completed', NOW())";
+                    
+                    $stmt = $this->db->prepare($transactionQuery);
+                    $stmt->execute([
+                        $userId, $type, abs($diffPlano), $oldSaldoPlano, $newSaldoPlano, $description
+                    ]);
+                    
+                    error_log("ADMIN_BALANCE: Transação plano registrada - User {$userId}, Diff: R$ {$diffPlano}");
+                }
+            }
+            
+        } catch (Exception $e) {
+            error_log("REGISTER_BALANCE_TRANSACTIONS ERROR: " . $e->getMessage());
         }
     }
     
@@ -666,7 +732,7 @@ class DashboardAdminController {
                 );
             }
             
-            // Notificação de alteração de saldo
+            // Notificação de alteração de saldo da carteira
             if (isset($newData['saldo'])) {
                 $oldSaldo = (float)($currentUser['saldo'] ?? 0);
                 $newSaldo = (float)$newData['saldo'];
@@ -678,8 +744,8 @@ class DashboardAdminController {
                         $notificationService->createNotification(
                             $userId,
                             'success',
-                            'Créditos Recebidos',
-                            'Você recebeu créditos de ' . $formattedDiff . ' do Administrador.',
+                            'Créditos Recebidos na Carteira',
+                            'Você recebeu créditos de ' . $formattedDiff . ' na sua carteira pelo Administrador. Saldo anterior: R$ ' . number_format($oldSaldo, 2, ',', '.') . ' → Novo saldo: R$ ' . number_format($newSaldo, 2, ',', '.'),
                             null,
                             null,
                             'high'
@@ -688,8 +754,40 @@ class DashboardAdminController {
                         $notificationService->createNotification(
                             $userId,
                             'warning',
-                            'Saldo Ajustado',
-                            'O Administrador ajustou o seu saldo. Foram removidos ' . $formattedDiff . '.',
+                            'Saldo da Carteira Ajustado',
+                            'O Administrador ajustou o saldo da sua carteira. Foram removidos ' . $formattedDiff . '. Saldo anterior: R$ ' . number_format($oldSaldo, 2, ',', '.') . ' → Novo saldo: R$ ' . number_format($newSaldo, 2, ',', '.'),
+                            null,
+                            null,
+                            'high'
+                        );
+                    }
+                }
+            }
+            
+            // Notificação de alteração de saldo do plano
+            if (isset($newData['saldo_plano'])) {
+                $oldSaldoPlano = (float)($currentUser['saldo_plano'] ?? 0);
+                $newSaldoPlano = (float)$newData['saldo_plano'];
+                $diffPlano = $newSaldoPlano - $oldSaldoPlano;
+                
+                if ($diffPlano != 0) {
+                    $formattedDiff = 'R$ ' . number_format(abs($diffPlano), 2, ',', '.');
+                    if ($diffPlano > 0) {
+                        $notificationService->createNotification(
+                            $userId,
+                            'success',
+                            'Créditos Recebidos no Plano',
+                            'Você recebeu créditos de ' . $formattedDiff . ' no saldo do plano pelo Administrador. Saldo anterior: R$ ' . number_format($oldSaldoPlano, 2, ',', '.') . ' → Novo saldo: R$ ' . number_format($newSaldoPlano, 2, ',', '.'),
+                            null,
+                            null,
+                            'high'
+                        );
+                    } else {
+                        $notificationService->createNotification(
+                            $userId,
+                            'warning',
+                            'Saldo do Plano Ajustado',
+                            'O Administrador ajustou o saldo do seu plano. Foram removidos ' . $formattedDiff . '. Saldo anterior: R$ ' . number_format($oldSaldoPlano, 2, ',', '.') . ' → Novo saldo: R$ ' . number_format($newSaldoPlano, 2, ',', '.'),
                             null,
                             null,
                             'high'
@@ -740,7 +838,6 @@ class DashboardAdminController {
             
         } catch (Exception $e) {
             error_log("SEND_UPDATE_NOTIFICATIONS ERROR: " . $e->getMessage());
-            // Não falhar a atualização por causa de erro em notificação
         }
     }
     
