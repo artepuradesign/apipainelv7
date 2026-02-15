@@ -1,11 +1,22 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { getFullApiUrl } from '@/utils/apiHelper';
 import type { User } from "@/types/user";
+
+interface Plan {
+  id: number;
+  name: string;
+  slug: string;
+  price: number;
+  priceFormatted: string;
+}
 
 interface EditUserModalProps {
   user: User | null;
@@ -16,6 +27,30 @@ interface EditUserModalProps {
 }
 
 const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUserModalProps) => {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchPlans();
+    }
+  }, [isOpen]);
+
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    try {
+      const response = await fetch(getFullApiUrl('/plans/active'));
+      const result = await response.json();
+      if (result.success && result.data) {
+        setPlans(result.data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar planos:', error);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -53,11 +88,33 @@ const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUser
             </div>
             <div>
               <Label htmlFor="edit-plan">Plano</Label>
-              <Input
-                id="edit-plan"
-                value={user.plan}
-                onChange={(e) => onUserChange({ ...user, plan: e.target.value })}
-              />
+              {loadingPlans ? (
+                <div className="flex items-center gap-2 h-10 px-3 border rounded-md">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Carregando planos...</span>
+                </div>
+              ) : (
+                <Select
+                  value={user.plan}
+                  onValueChange={(value) => onUserChange({ ...user, plan: value })}
+                >
+                  <SelectTrigger id="edit-plan">
+                    <SelectValue placeholder="Selecione um plano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.name}>
+                        {plan.name} - {plan.priceFormatted}
+                      </SelectItem>
+                    ))}
+                    {plans.length === 0 && (
+                      <SelectItem value={user.plan} disabled={false}>
+                        {user.plan}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
           <div>
@@ -66,6 +123,7 @@ const EditUserModal = ({ user, isOpen, onClose, onSave, onUserChange }: EditUser
               id="edit-notes"
               value={user.notes || ''}
               onChange={(e) => onUserChange({ ...user, notes: e.target.value })}
+              placeholder="Escreva uma observação que será enviada como notificação ao usuário..."
             />
           </div>
           <div className="flex gap-2">

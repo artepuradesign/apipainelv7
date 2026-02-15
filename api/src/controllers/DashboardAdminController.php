@@ -596,12 +596,13 @@ class DashboardAdminController {
         try {
             $data = json_decode(file_get_contents("php://input"), true);
             
-            // Verificar se usuário existe
-            $checkQuery = "SELECT id FROM users WHERE id = ?";
+            // Buscar dados atuais do usuário antes de atualizar
+            $checkQuery = "SELECT * FROM users WHERE id = ?";
             $checkStmt = $this->db->prepare($checkQuery);
             $checkStmt->execute([$userId]);
+            $currentUser = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
-            if (!$checkStmt->fetch()) {
+            if (!$currentUser) {
                 Response::error('Usuário não encontrado', 404);
                 return;
             }
@@ -633,6 +634,9 @@ class DashboardAdminController {
             $result = $stmt->execute($updateParams);
             
             if ($result) {
+                // Enviar notificações sobre as alterações
+                $this->sendUpdateNotifications($userId, $currentUser, $data);
+                
                 Response::success(null, 'Usuário atualizado com sucesso');
             } else {
                 Response::error('Erro ao atualizar usuário', 500);
@@ -641,6 +645,102 @@ class DashboardAdminController {
         } catch (Exception $e) {
             error_log("DASHBOARD_ADMIN UPDATE_USER ERROR: " . $e->getMessage());
             Response::error('Erro ao atualizar usuário: ' . $e->getMessage(), 500);
+        }
+    }
+    
+    private function sendUpdateNotifications($userId, $currentUser, $newData) {
+        try {
+            require_once __DIR__ . '/../services/NotificationService.php';
+            $notificationService = new NotificationService($this->db);
+            
+            // Notificação de alteração de plano
+            if (isset($newData['tipoplano']) && $newData['tipoplano'] !== $currentUser['tipoplano']) {
+                $notificationService->createNotification(
+                    $userId,
+                    'system',
+                    'Plano Atualizado pelo Administrador',
+                    'O Administrador atualizou o seu plano de "' . ($currentUser['tipoplano'] ?? 'Nenhum') . '" para "' . $newData['tipoplano'] . '".',
+                    null,
+                    null,
+                    'high'
+                );
+            }
+            
+            // Notificação de alteração de saldo
+            if (isset($newData['saldo'])) {
+                $oldSaldo = (float)($currentUser['saldo'] ?? 0);
+                $newSaldo = (float)$newData['saldo'];
+                $diff = $newSaldo - $oldSaldo;
+                
+                if ($diff != 0) {
+                    $formattedDiff = 'R$ ' . number_format(abs($diff), 2, ',', '.');
+                    if ($diff > 0) {
+                        $notificationService->createNotification(
+                            $userId,
+                            'success',
+                            'Créditos Recebidos',
+                            'Você recebeu créditos de ' . $formattedDiff . ' do Administrador.',
+                            null,
+                            null,
+                            'high'
+                        );
+                    } else {
+                        $notificationService->createNotification(
+                            $userId,
+                            'warning',
+                            'Saldo Ajustado',
+                            'O Administrador ajustou o seu saldo. Foram removidos ' . $formattedDiff . '.',
+                            null,
+                            null,
+                            'high'
+                        );
+                    }
+                }
+            }
+            
+            // Notificação de observações
+            if (isset($newData['notes']) && !empty(trim($newData['notes']))) {
+                $notificationService->createNotification(
+                    $userId,
+                    'info',
+                    'Mensagem do Administrador',
+                    $newData['notes'],
+                    null,
+                    null,
+                    'medium'
+                );
+            }
+            
+            // Notificação de alteração de status
+            if (isset($newData['status']) && $newData['status'] !== $currentUser['status']) {
+                $statusText = $newData['status'] === 'ativo' ? 'ativada' : 'desativada';
+                $notificationService->createNotification(
+                    $userId,
+                    'system',
+                    'Conta ' . ucfirst($statusText),
+                    'A sua conta foi ' . $statusText . ' pelo Administrador.',
+                    null,
+                    null,
+                    'high'
+                );
+            }
+            
+            // Notificação de alteração de nome
+            if (isset($newData['full_name']) && $newData['full_name'] !== $currentUser['full_name']) {
+                $notificationService->createNotification(
+                    $userId,
+                    'info',
+                    'Dados Atualizados',
+                    'O Administrador atualizou o seu nome de "' . ($currentUser['full_name'] ?? '') . '" para "' . $newData['full_name'] . '".',
+                    null,
+                    null,
+                    'low'
+                );
+            }
+            
+        } catch (Exception $e) {
+            error_log("SEND_UPDATE_NOTIFICATIONS ERROR: " . $e->getMessage());
+            // Não falhar a atualização por causa de erro em notificação
         }
     }
     
