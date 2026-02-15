@@ -19,6 +19,7 @@ export interface User {
   pixKeys?: string[];
   planStartDate?: string;
   planEndDate?: string;
+  planDiscount?: number;
   subscription?: {
     id: number;
     plan_id: number;
